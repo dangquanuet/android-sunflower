@@ -28,8 +28,9 @@ import android.view.ViewGroup
 import androidx.core.app.ShareCompat
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProviders
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.observe
+import androidx.navigation.fragment.navArgs
 import com.google.android.material.snackbar.Snackbar
 import com.google.samples.apps.sunflower.databinding.FragmentPlantDetailBinding
 import com.google.samples.apps.sunflower.utilities.InjectorUtils
@@ -40,50 +41,49 @@ import com.google.samples.apps.sunflower.viewmodels.PlantDetailViewModel
  */
 class PlantDetailFragment : Fragment() {
 
+    private val args: PlantDetailFragmentArgs by navArgs()
     private lateinit var shareText: String
+
+    private val plantDetailViewModel: PlantDetailViewModel by viewModels {
+        InjectorUtils.providePlantDetailViewModelFactory(requireActivity(), args.plantId)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val plantId = PlantDetailFragmentArgs.fromBundle(arguments).plantId
-
-        val factory = InjectorUtils.providePlantDetailViewModelFactory(requireActivity(), plantId)
-        val plantDetailViewModel = ViewModelProviders.of(this, factory)
-                .get(PlantDetailViewModel::class.java)
-
         val binding = DataBindingUtil.inflate<FragmentPlantDetailBinding>(
                 inflater, R.layout.fragment_plant_detail, container, false).apply {
             viewModel = plantDetailViewModel
-            setLifecycleOwner(this@PlantDetailFragment)
+            lifecycleOwner = this@PlantDetailFragment
             fab.setOnClickListener { view ->
                 plantDetailViewModel.addPlantToGarden()
                 Snackbar.make(view, R.string.added_plant_to_garden, Snackbar.LENGTH_LONG).show()
             }
         }
 
-        plantDetailViewModel.plant.observe(this, Observer { plant ->
+        plantDetailViewModel.plant.observe(this) { plant ->
             shareText = if (plant == null) {
                 ""
             } else {
                 getString(R.string.share_text_plant, plant.name)
             }
-        })
+        }
 
         setHasOptionsMenu(true)
 
         return binding.root
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?, inflater: MenuInflater?) {
-        inflater?.inflate(R.menu.menu_plant_detail, menu)
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.menu_plant_detail, menu)
         super.onCreateOptionsMenu(menu, inflater)
     }
 
     @Suppress("DEPRECATION")
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-        return when (item?.itemId) {
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
             R.id.action_share -> {
                 val shareIntent = ShareCompat.IntentBuilder.from(activity)
                     .setText(shareText)
